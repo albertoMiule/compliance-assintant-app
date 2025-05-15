@@ -42,7 +42,7 @@ src/
 ### 1  Clone & Install
 
 ```bash
-git clone https://github.com/your-user/compliance-assistant.git
+git clone https://github.com/albertoMiule/compliance-assintant-app
 cd compliance-assistant
 pnpm install    # or npm / yarn
 ```
@@ -92,7 +92,7 @@ vercel env add OPENAI_API_KEY prod # paste key when prompted
 vercel --prod
 ```
 
-A live URL such as `https://your-project.vercel.app` is available in \~60 s.
+A live URL such as `https://compliance-assistant-app.vercel.app` is available in \~60 s.
 
 ---
 
