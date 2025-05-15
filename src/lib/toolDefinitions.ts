@@ -1,5 +1,53 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
+import { suppliers } from "@/data/suppliers";
+import { Supplier } from "@/data/suppliers"; // type only
+
+/* existing summarize / check_clauses / generate_privacy_notice … */
+
+export const query_suppliers = tool({
+  description:
+    "Return suppliers that meet the optional filters. If multiple filters are provided, combine them with AND. Default sort is highest riskScore first.",
+  parameters: z
+    .object({
+      top: z.number().int().min(1).optional()
+        .describe("Return only the N suppliers with the highest riskScore"),
+      industry: z.string().optional()
+        .describe("Exact industry name to filter by, case-insensitive"),
+      location: z.string().optional()
+        .describe("Substring match on City or Country"),
+      category: z.string().optional()
+        .describe("One riskCategory to filter by"),
+      minRisk: z.number().int().min(1).max(10).optional(),
+      maxRisk: z.number().int().min(1).max(10).optional(),
+      sort: z.enum(["RISK_DESC", "NAME_ASC"]).optional()
+        .describe("Sorting mode; defaults to risk score desc"),
+    })
+    .strict(),
+  async execute(args) {
+    // 1. Filter
+    let list: Supplier[] = suppliers.filter((s) => {
+      if (args.industry && s.industry.toLowerCase() !== args.industry.toLowerCase()) return false;
+      if (args.location && !s.location.toLowerCase().includes(args.location.toLowerCase())) return false;
+      if (args.category && !s.riskCategories.map((c) => c.toLowerCase()).includes(args.category.toLowerCase())) return false;
+      if (args.minRisk && s.riskScore < args.minRisk) return false;
+      if (args.maxRisk && s.riskScore > args.maxRisk) return false;
+      return true;
+    });
+
+    // 2. Sort
+    if (args.sort === "NAME_ASC") {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      list.sort((a, b) => b.riskScore - a.riskScore);
+    }
+
+    // 3. Top-N
+    if (args.top) list = list.slice(0, args.top);
+
+    return { suppliers: list };
+  },
+});
 
 /** 
  * Summarize a compliance or policy document into concise bullet points. 
@@ -60,4 +108,5 @@ export const toolDefinitions: ToolSet = {
   summarize,
   check_clauses,
   generate_privacy_notice,
+  query_suppliers
 };
