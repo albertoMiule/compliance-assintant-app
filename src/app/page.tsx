@@ -1,5 +1,5 @@
 /* ────────────────────────────────────────────────────────────────
-   src/app/page.tsx   ←  overwrite everything with this version
+   src/app/page.tsx
 ────────────────────────────────────────────────────────────────── */
 "use client";
 
@@ -9,55 +9,73 @@ import ReactMarkdown from "react-markdown";
 type Message = { role: "user" | "assistant"; content: string };
 
 export default function Home() {
+  /* ── state ─────────────────────────── */
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput]       = useState("");
-  const [isSending, setIsSending]         = useState(false);   // spinner on Send
-  const [assistantTyping, setAssistantTyping] = useState(false); // “typing…” dots
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [assistantTyping, setAssistantTyping] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  /*  ---- ensure hydration only once ---- */
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  /* mark hydration complete */
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  /* one-time welcome bubble */
+  useEffect(() => {
+    if (mounted && messages.length === 0) {
+      setMessages([
+        {
+          role: "assistant",
+          content:
+            "👋 Hi! I’m **Compliance-GPT**.\n\n" +
+            "• Summarise long compliance or policy docs.\n" +
+            "• Check whether key clauses are present.\n" +
+            "• Draft a privacy notice from a company name + email.\n" +
+            "• Query supplier-risk data (e.g. “Top-3 highest-risk suppliers”).\n\n" +
+            "Just type a question or paste a document to get started!",
+        },
+      ]);
+    }
+  }, [mounted, messages.length]);
+
+  /* nothing until hydration */
   if (!mounted) return null;
 
-  /* ─── main send handler ─────────────────────────────────────── */
+  /* send handler */
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    /* 1️⃣  optimistic user bubble */
-    const next = [...messages, { role: "user", content: input } as const];
+    const userMsg: Message = { role: "user", content: input };
+    const next = [...messages, userMsg];
     setMessages(next);
     setInput("");
 
-    /* 2️⃣  UI flags */
     setIsSending(true);
     setAssistantTyping(true);
     setMessages((prev) => [...prev, { role: "assistant", content: "" } as const]);
 
-    /* 3️⃣  network call */
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: next }),
     });
+    const { result } = await res.json();
 
-    const { result } = await res.json();          // { result: string }
-
-    /* 4️⃣  fill placeholder */
     setMessages((prev) => {
       const clone = [...prev];
-      clone[clone.length - 1] = { role: "assistant", content: result.trim() } as const;      
+      clone[clone.length - 1] = { role: "assistant", content: result.trim() } as const;
       return clone;
     });
 
-    /* 5️⃣  reset flags + autoscroll */
     setIsSending(false);
     setAssistantTyping(false);
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  /* ─── render ────────────────────────────────────────────────── */
+  /* ── render ─────────────────────────── */
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-blue-100 to-indigo-200">
       {/* header */}
@@ -97,8 +115,8 @@ export default function Home() {
       <footer className="p-4 bg-white flex gap-2 border-t">
         <input
           className="flex-1 rounded-lg border border-gray-400 bg-white text-gray-900
-             p-2 outline-none focus:ring-2 focus:ring-blue-400
-             placeholder:text-gray-400"          
+                     p-2 outline-none focus:ring-2 focus:ring-blue-400
+                     placeholder:text-gray-400"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
